@@ -25,14 +25,16 @@ foreach($fetchedUpdate['updateArray'] as $update) {
     generatePack($update['updateId']);
 }
 
-echo $fetchedUpdate['foundBuild'];
-echo '|';
-echo $fetchedUpdate['arch'];
-echo '|';
-echo $fetchedUpdate['updateId'];
-echo '|';
-echo $fetchedUpdate['updateTitle'];
-echo '|';
-echo $fetchedUpdate['fileWrite'];
-echo "\n";
+foreach($fetchedUpdate['updateArray'] as $update) {
+    echo $update['foundBuild'];
+    echo '|';
+    echo $update['arch'];
+    echo '|';
+    echo $update['updateId'];
+    echo '|';
+    echo $update['updateTitle'];
+    echo '|';
+    echo $update['fileWrite'];
+    echo "\n";
+}
 ?>
