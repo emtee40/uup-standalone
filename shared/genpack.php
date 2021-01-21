@@ -26,10 +26,12 @@ function generatePack($updateId) {
         return 2;
     }
 
+    if($updateId == 'd7ac1db8-230e-47df-8e6f-49fb976f6f5c') return 2;
+
     consoleLogger('Generating packs for '.$updateId.'...');
     $files = uupGetFiles($updateId, 0, 0);
     if(isset($files['error'])) {
-        throwError($files['error']);
+        return 0;
     }
 
     $files = $files['files'];
@@ -58,7 +60,7 @@ function generatePack($updateId) {
 
         $files = preg_grep('/Path = /', $out);
         $files = preg_replace('/Path = /', '', $files);
-        $dataFiles = preg_grep('/DesktopTargetCompDB_.*_.*\./i', $files);
+        $dataFiles = preg_grep('/DesktopTargetCompDB_.*_.*\.|ServerTargetCompDB_.*_.*\./i', $files);
         unset($out);
 
         exec("$z7z x -o\"$tmp\" \"$loc\" -y", $out, $errCode);
@@ -78,7 +80,7 @@ function generatePack($updateId) {
                     throwError('7ZIP_ERROR');
                 }
 
-                $temp = preg_grep('/^-.*DesktopTargetCompDB_.*_.*\./i', $out);
+                $temp = preg_grep('/^-.*DesktopTargetCompDB_.*_.*\.|^-.*ServerTargetCompDB_.*_.*\./i', $out);
                 sort($temp);
                 $temp = preg_replace('/^- /', '', $temp[0]);
 
@@ -132,8 +134,8 @@ function generatePack($updateId) {
         $file = $tmp.'/'.$val;
         $xml = simplexml_load_file($file);
 
-        $lang = preg_replace('/.*DesktopTargetCompDB_.*_/', '', $filNam);
-        $edition = preg_replace('/.*DesktopTargetCompDB_|_'.$lang.'/', '', $filNam);
+        $lang = preg_replace('/.*DesktopTargetCompDB_.*_|.*ServerTargetCompDB_.*_/', '', $filNam);
+        $edition = preg_replace('/.*DesktopTargetCompDB_|.*ServerTargetCompDB_|_'.$lang.'/', '', $filNam);
 
         $lang = strtolower($lang);
         $edition = strtoupper($edition);
