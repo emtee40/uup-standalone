@@ -34,6 +34,7 @@ function generatePack($updateId) {
         return 0;
     }
 
+    $isku = $files['sku'];
     $files = $files['files'];
     $filesKeys = array_keys($files);
 
@@ -142,11 +143,11 @@ function generatePack($updateId) {
 
         $lang = preg_replace('/.*DesktopTargetCompDB_.*_|.*ServerTargetCompDB_.*_/', '', $filNam);
         $edition = preg_replace('/.*DesktopTargetCompDB_|.*ServerTargetCompDB_|_'.$lang.'/', '', $filNam);
-        if($sku == 189) {
+        if($isku == 189) {
             $lang = 'en-us';
             $edition = 'Lite';
         }
-        if($sku == 135) {
+        if($isku == 135) {
             $lang = 'en-us';
             $edition = 'Holographic';
         }
