@@ -60,7 +60,7 @@ function generatePack($updateId) {
 
         $files = preg_grep('/Path = /', $out);
         $files = preg_replace('/Path = /', '', $files);
-        $dataFiles = preg_grep('/DesktopTargetCompDB_.*_.*\.|ServerTargetCompDB_.*_.*\./i', $files);
+        $dataFiles = preg_grep('/DesktopTargetCompDB_.*_.*\.|ServerTargetCompDB_.*_.*\.|ModernPCTargetCompDB_.*\.|HolographicTargetCompDB_.*\./i', $files);
         unset($out);
 
         exec("$z7z x -o\"$tmp\" \"$loc\" -y", $out, $errCode);
@@ -80,7 +80,7 @@ function generatePack($updateId) {
                     throwError('7ZIP_ERROR');
                 }
 
-                $temp = preg_grep('/^-.*DesktopTargetCompDB_.*_.*\.|^-.*ServerTargetCompDB_.*_.*\./i', $out);
+                $temp = preg_grep('/^-.*DesktopTargetCompDB_.*_.*\.|^-.*ServerTargetCompDB_.*_.*\.|^-.*ModernPCTargetCompDB_.*\.|^-.*HolographicTargetCompDB_.*\./i', $out);
                 sort($temp);
                 $temp = preg_replace('/^- /', '', $temp[0]);
 
@@ -94,7 +94,7 @@ function generatePack($updateId) {
         unlink($loc);
         unset($loc, $checkFile, $checkEd, $dataFiles);
     } else {
-        $dataFiles = preg_grep('/DesktopTargetCompDB_.*_.*\./i', $filesKeys);
+        $dataFiles = preg_grep('/DesktopTargetCompDB_.*_.*\.|ServerTargetCompDB_.*_.*\.|ModernPCTargetCompDB\.|HolographicTargetCompDB\./i', $filesKeys);
 
         foreach($dataFiles as $val) {
             $url = $files[$val]['url'];
@@ -113,7 +113,7 @@ function generatePack($updateId) {
                     throwError('7ZIP_ERROR');
                 }
 
-                $temp = preg_grep('/^-.*DesktopTargetCompDB_.*_.*\./i', $out);
+                $temp = preg_grep('/^-.*DesktopTargetCompDB_.*_.*\.|^-.*ServerTargetCompDB_.*_.*\.|^-.*ModernPCTargetCompDB\.|^-.*HolographicTargetCompDB\./i', $out);
                 sort($temp);
                 $temp = preg_replace('/^- /', '', $temp[0]);
 
@@ -127,6 +127,12 @@ function generatePack($updateId) {
         unset($loc, $checkEd, $dataFiles);
     }
 
+    $keepPath = 0;
+    foreach($filesKeys as $val) {
+        if(preg_match('/^appx\/(.*?)\//i', $val)) $keepPath = 1;
+        if(preg_match('/^(retail)\/(.{3,5})\/fre\//i', $val)) $keepPath = 1;
+    }
+
     $langsEditions = array();
     $packages = array();
     foreach($filesToRead as $val) {
@@ -136,6 +142,14 @@ function generatePack($updateId) {
 
         $lang = preg_replace('/.*DesktopTargetCompDB_.*_|.*ServerTargetCompDB_.*_/', '', $filNam);
         $edition = preg_replace('/.*DesktopTargetCompDB_|.*ServerTargetCompDB_|_'.$lang.'/', '', $filNam);
+        if($sku == 189) {
+            $lang = 'en-us';
+            $edition = 'Lite';
+        }
+        if($sku == 135) {
+            $lang = 'en-us';
+            $edition = 'Holographic';
+        }
 
         $lang = strtolower($lang);
         $edition = strtoupper($edition);
@@ -143,7 +157,23 @@ function generatePack($updateId) {
         foreach($xml->Packages->Package as $val) {
             foreach($val->Payload->PayloadItem as $PayloadItem) {
                 $name = $PayloadItem['Path'];
-                $name = preg_replace('/.*\\\/', '', $name);
+                if($keepPath) {
+                    $name = str_replace('\\', '_', $name);
+                } else {
+                    $name = preg_replace('/.*\\\/', '', $name);
+                }
+                $packages[$lang][$edition][] = $name;
+            }
+        }
+
+        if(@count($xml->AppX)) foreach($xml->AppX->AppXPackages->Package as $val) {
+            foreach($val->Payload->PayloadItem as $PayloadItem) {
+                $name = $PayloadItem['Path'];
+                if($keepPath) {
+                    $name = str_replace('\\', '_', $name);
+                } else {
+                    $name = preg_replace('/.*\\\/', '', $name);
+                }
                 $packages[$lang][$edition][] = $name;
             }
         }
