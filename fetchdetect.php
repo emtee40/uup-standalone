@@ -5,6 +5,7 @@ $flight = isset($argv[3]) ? $argv[3] : 'Active';
 $build = isset($argv[4]) ? intval($argv[4]) : 16251;
 $minor = isset($argv[5]) ? intval($argv[5]) : 0;
 $sku = isset($argv[6]) ? intval($argv[6]) : 48;
+$type = isset($argv[7]) ? $argv[7] : 'Production';
 
 require_once dirname(__FILE__).'/api/fetchupd.php';
 require_once dirname(__FILE__).'/shared/main.php';
@@ -16,7 +17,7 @@ if(!get7ZipLocation()) {
     throwError('NO_7ZIP');
 }
 
-$fetchedUpdate = uupFetchUpd($arch, $ring, $flight, $build, $minor, $sku);
+$fetchedUpdate = uupFetchUpd($arch, $ring, $flight, $build, $minor, $sku, $type);
 if(isset($fetchedUpdate['error'])) {
     throwError($fetchedUpdate['error']);
 }
