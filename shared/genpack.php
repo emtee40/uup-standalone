@@ -36,10 +36,17 @@ function generatePack($updateId) {
 
     $isku = $files['sku'];
     $files = $files['files'];
+
+    if(!$files[key($files)]['sha256']) {
+        consoleLogger('Update is not SHA-256 capable!');
+        return 0;
+    }
+
     $filesKeys = array_keys($files);
 
     $filesToRead = array();
     $aggregatedMetadata = preg_grep('/AggregatedMetadata/i', $filesKeys);
+
     if(!empty($aggregatedMetadata)) {
         sort($aggregatedMetadata);
         $checkFile = $aggregatedMetadata[0];
@@ -128,12 +135,6 @@ function generatePack($updateId) {
         unset($loc, $checkEd, $dataFiles);
     }
 
-    $keepPath = 0;
-    foreach($filesKeys as $val) {
-        if(preg_match('/^appx\/(.*?)\//i', $val)) $keepPath = 1;
-        if(preg_match('/^(retail)\/(.{3,5})\/fre\//i', $val)) $keepPath = 1;
-    }
-
     $langsEditions = array();
     $packages = array();
     foreach($filesToRead as $val) {
@@ -157,25 +158,15 @@ function generatePack($updateId) {
 
         foreach($xml->Packages->Package as $val) {
             foreach($val->Payload->PayloadItem as $PayloadItem) {
-                $name = $PayloadItem['Path'];
-                if($keepPath) {
-                    $name = str_replace('\\', '_', $name);
-                } else {
-                    $name = preg_replace('/.*\\\/', '', $name);
-                }
-                $packages[$lang][$edition][] = $name;
+                $sha256 = bin2hex(base64_decode($PayloadItem['PayloadHash']));
+                $packages[$lang][$edition][] = $sha256;
             }
         }
 
         if(@count($xml->AppX)) foreach($xml->AppX->AppXPackages->Package as $val) {
             foreach($val->Payload->PayloadItem as $PayloadItem) {
-                $name = $PayloadItem['Path'];
-                if($keepPath) {
-                    $name = str_replace('\\', '_', $name);
-                } else {
-                    $name = preg_replace('/.*\\\/', '', $name);
-                }
-                $packages[$lang][$edition][] = $name;
+                $sha256 = bin2hex(base64_decode($PayloadItem['PayloadHash']));
+                $packages[$lang][$edition][] = $sha256;
             }
         }
 
