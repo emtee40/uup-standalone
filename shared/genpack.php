@@ -37,11 +37,6 @@ function generatePack($updateId) {
     $isku = $files['sku'];
     $files = $files['files'];
 
-    if(!$files[key($files)]['sha256']) {
-        consoleLogger('Update is not SHA-256 capable!');
-        return 0;
-    }
-
     $filesKeys = array_keys($files);
 
     $filesToRead = array();
@@ -50,6 +45,12 @@ function generatePack($updateId) {
     if(!empty($aggregatedMetadata)) {
         sort($aggregatedMetadata);
         $checkFile = $aggregatedMetadata[0];
+
+        if(!$files[$checkFile]['sha256']) {
+            consoleLogger('Update is not SHA-256 capable!');
+            return 0;
+        }
+
         $url = $files[$checkFile]['url'];
         $loc = "$tmp/$checkFile";
 
@@ -105,6 +106,11 @@ function generatePack($updateId) {
         $dataFiles = preg_grep('/DesktopTargetCompDB_.*_.*\.|ServerTargetCompDB_.*_.*\.|ModernPCTargetCompDB\.|HolographicTargetCompDB\./i', $filesKeys);
 
         foreach($dataFiles as $val) {
+            if(!$files[$val]['sha256']) {
+                consoleLogger('Update is not SHA-256 capable!');
+                return 0;
+            }
+
             $url = $files[$val]['url'];
             $loc = "$tmp/$val";
 
