@@ -35,11 +35,13 @@ function generatePack($updateId) {
     }
 
     $isku = $files['sku'];
+    $ibld = $files['build'];
     $files = $files['files'];
 
     $filesKeys = array_keys($files);
 
     $filesToRead = array();
+    $appsToRead = array();
     $aggregatedMetadata = preg_grep('/AggregatedMetadata/i', $filesKeys);
 
     if(!empty($aggregatedMetadata)) {
@@ -70,6 +72,10 @@ function generatePack($updateId) {
         $files = preg_grep('/Path = /', $out);
         $files = preg_replace('/Path = /', '', $files);
         $dataFiles = preg_grep('/DesktopTargetCompDB_.*_.*\.|ServerTargetCompDB_.*_.*\.|ModernPCTargetCompDB_.*\.|HolographicTargetCompDB_.*\./i', $files);
+        if($ibld > 22557) {
+            $dataFiles = preg_grep('/DesktopTargetCompDB_App_.*\.|ServerTargetCompDB_App_.*\./i', $dataFiles, PREG_GREP_INVERT);
+            $dataApps = preg_grep('/DesktopTargetCompDB_App_.*\.|ServerTargetCompDB_App_.*\./i', $files);
+		}
         unset($out);
 
         exec("$z7z x -o\"$tmp\" \"$loc\" -y", $out, $errCode);
@@ -100,10 +106,37 @@ function generatePack($updateId) {
                 $filesToRead[] = $val;
             }
         }
+
+        if(!empty($dataApps)) foreach($dataApps as $val) {
+            consoleLogger('Unpacking info file: '.$val);
+
+            if(preg_match('/.cab$/i', $val)) {
+                exec("$z7z x -bb2 -o\"$tmp\" \"$tmp/$val\" -y", $out, $errCode);
+                if($errCode != 0) {
+                    unlink($loc);
+                    throwError('7ZIP_ERROR');
+                }
+
+                $temp = preg_grep('/^-.*DesktopTargetCompDB_App_.*\.|ServerTargetCompDB_App_.*\./i', $out);
+                sort($temp);
+                $temp = preg_replace('/^- /', '', $temp[0]);
+
+                $appsToRead[] = preg_replace('/.cab$/i', '', $temp);
+                unlink("$tmp/$val");
+                unset($temp, $out);
+            } else {
+                $appsToRead[] = $val;
+            }
+        }
+
         unlink($loc);
-        unset($loc, $checkFile, $checkEd, $dataFiles);
+        unset($loc, $checkFile, $checkEd, $dataFiles, $dataApps);
     } else {
         $dataFiles = preg_grep('/DesktopTargetCompDB_.*_.*\.|ServerTargetCompDB_.*_.*\.|ModernPCTargetCompDB\.|HolographicTargetCompDB\./i', $filesKeys);
+        if($ibld > 22557) {
+            $dataFiles = preg_grep('/DesktopTargetCompDB_App_.*\.|ServerTargetCompDB_App_.*\./i', $dataFiles, PREG_GREP_INVERT);
+            $dataApps = preg_grep('/DesktopTargetCompDB_App_.*\.|ServerTargetCompDB_App_.*\./i', $filesKeys);
+		}
 
         foreach($dataFiles as $val) {
             if(!$files[$val]['sha256']) {
@@ -138,9 +171,45 @@ function generatePack($updateId) {
                 $filesToRead[] = $val;
             }
         }
-        unset($loc, $checkEd, $dataFiles);
+
+        if(!empty($dataApps)) foreach($dataApps as $val) {
+            if(!$files[$val]['sha256']) {
+                consoleLogger('Update is not SHA-256 capable!');
+                return 0;
+            }
+
+            $url = $files[$val]['url'];
+            $loc = "$tmp/$val";
+
+            consoleLogger('Downloading info file: '.$val);
+            downloadFile($url, $loc);
+            if(!file_exists($loc)) {
+                throwError('INFO_DOWNLOAD_ERROR');
+            }
+
+            if(preg_match('/.cab$/i', $val)) {
+                exec("$z7z x -bb2 -o\"$tmp\" \"$tmp/$val\" -y", $out, $errCode);
+                if($errCode != 0) {
+                    unlink($loc);
+                    throwError('7ZIP_ERROR');
+                }
+
+                $temp = preg_grep('/^-.*DesktopTargetCompDB_App_.*\.|ServerTargetCompDB_App_.*\./i', $out);
+                sort($temp);
+                $temp = preg_replace('/^- /', '', $temp[0]);
+
+                $appsToRead[] = preg_replace('/.cab$/i', '', $temp);
+                unlink("$tmp/$val");
+                unset($temp, $out);
+            } else {
+                $appsToRead[] = $val;
+            }
+        }
+
+        unset($loc, $checkEd, $dataFiles, $dataApps);
     }
 
+    $optAppx = array();
     $langsEditions = array();
     $packages = array();
     foreach($filesToRead as $val) {
@@ -176,11 +245,60 @@ function generatePack($updateId) {
             }
         }
 
+        if($ibld > 22557 && @count($xml->Features->Feature->Dependencies)) {
+            foreach($xml->Features->Feature->Dependencies->Feature as $ftr) {
+                if(isset($ftr['Group']) && ($ftr['Group'] == 'PreinstalledApps')) $optAppx[] = strtolower($ftr['FeatureID']);
+            }
+        }
+
         $packages[$lang][$edition] = array_unique($packages[$lang][$edition]);
         sort($packages[$lang][$edition]);
 
         unlink($file);
         unset($file, $xml, $name, $newName, $lang, $edition);
+    }
+
+    $appxOpt = array_flip($optAppx);
+    $paks = array();
+    if(isset($appsToRead)) foreach($appsToRead as $val) {
+        $filNam = preg_replace('/\.xml.*/', '', $val);
+        $file = $tmp.'/'.$val;
+        $xml = simplexml_load_file($file);
+
+        $lang = preg_replace('/.*DesktopTargetCompDB_.*_|.*ServerTargetCompDB_.*_/', '', $filNam);
+        $edition = preg_replace('/.*DesktopTargetCompDB_|.*ServerTargetCompDB_|_'.$lang.'/', '', $filNam);
+
+        $lang = strtolower($lang);
+        $edition = strtoupper($edition);
+
+        foreach($xml->Packages->Package as $ppi) {
+            $pid = (string)$ppi['ID'];
+            foreach($ppi->Payload->PayloadItem as $PayloadItem) {
+                $sha256 = bin2hex(base64_decode($PayloadItem['PayloadHash']));
+                $paks[$pid][] = $sha256;
+            }
+        }
+
+        foreach($xml->Features->Feature as $ftr) {
+            if($ftr['Type'] == 'MSIXFramework') {
+                foreach($ftr->Packages->Package as $pkg) {
+                    $chk = (string)$pkg['ID'];
+                    $packages[$lang][$edition][] = $paks[$chk][0];
+                }
+                continue;
+			}
+            if(!isset($appxOpt[strtolower($ftr['FeatureID'])])) continue;
+            foreach($ftr->Packages->Package as $pkg) {
+                $chk = (string)$pkg['ID'];
+                $packages[$lang][$edition][] = $paks[$chk][0];
+            }
+        }
+
+        $packages[$lang][$edition] = array_unique($packages[$lang][$edition]);
+        sort($packages[$lang][$edition]);
+
+        unlink($file);
+        unset($file, $xml, $sha256, $lang, $edition, $pid, $chk);
     }
 
     $removeFiles = scandir($tmp);
