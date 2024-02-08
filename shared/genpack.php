@@ -256,6 +256,8 @@ function generatePack($updateId) {
             }
         }
 
+        if(!isset($packages[$lang][$edition])) continue;
+
         $packages[$lang][$edition] = array_unique($packages[$lang][$edition]);
         sort($packages[$lang][$edition]);
 
@@ -311,6 +313,8 @@ function generatePack($updateId) {
                 $packages[$lang][$edition][] = $paks[$chk][0];
             }
         }
+
+        if(!isset($packages[$lang][$edition])) continue;
 
         $packages[$lang][$edition] = array_unique($packages[$lang][$edition]);
         sort($packages[$lang][$edition]);
